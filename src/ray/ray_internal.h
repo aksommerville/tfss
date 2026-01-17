@@ -32,4 +32,7 @@ extern struct g {
   AudioStream stream;
 } g;
 
+extern const unsigned char _embedded_song[];
+extern const int _embedded_song_size;
+
 #endif

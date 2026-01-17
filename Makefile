@@ -10,6 +10,7 @@ ifeq ($(USER),andy)
 
 WRAPPERS:=pulse ray
 RAYLIB_SDK:=../thirdparty/raylib-5.5_linux_amd64
+RAYLIB_WEB_SDK:=../thirdparty/raylib-5.5_webassembly
 CC:=gcc -c -MMD -O3 -Isrc -Werror -Wimplicit -I$(RAYLIB_SDK)/include
 LD:=gcc
 LDPOST:=
@@ -51,6 +52,15 @@ ifeq (,$(FIRST_WRAPPER))
   run:;echo "No wrappers configured." ; exit 1
 else
   run:$(EXE_$(FIRST_WRAPPER));$(EXE_$(FIRST_WRAPPER)) src/data/eternal_torment.mid --repeat
+endif
+
+ifneq (,$(RAYLIB_WEB_SDK))
+  WASMCFILES:=$(filter src/ray/%.c src/tfss/%.c,$(CFILES))
+  WASM_EXE:=out/tfss.html
+  WASM_LIBA:=$(RAYLIB_WEB_SDK)/lib/libraylib.a
+  $(WASM_EXE):$(WASMCFILES);$(PRECMD) emcc -o$@ $^ -Os -Wall $(WASM_LIBA) -Isrc -I$(RAYLIB_WEB_SDK)/include -L$(RAYLIB_WEB_SDK)/lib -lraylib -s USE_GLFW=3 --shell-file src/minshell.html -DPLATFORM_WEB
+  web:$(WASM_EXE)
+  all:$(WASM_EXE)
 endif
 
 clean:;rm -rf mid out

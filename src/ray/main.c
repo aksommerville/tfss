@@ -1,6 +1,12 @@
 #include "ray_internal.h"
 #include <signal.h>
 
+#ifdef PLATFORM_WEB
+
+    #include <emscripten/emscripten.h>
+
+#endif
+
 struct g g={0};
 
 /* Signal handler.
@@ -29,6 +35,7 @@ static void quantize_output(int16_t *dst,const float *src,int c) {
 }
  
 static void cb_pcm_out(void *v,unsigned int framec) {
+  fprintf(stderr,"%s %d\n",__func__,framec);
   #define QBUFLIMIT 1024
   float qbuf[QBUFLIMIT];
   int qbufframec=QBUFLIMIT/g.chanc;
@@ -200,19 +207,26 @@ static int stream_update() {
     tmpp+=err;
   }
   // unlock
+  return 0;
+}
+
+static void UpdateDrawFrame() {
+  fprintf(stderr,"%s\n",__func__);
 }
 
 /* Main
  */
  
-int main(int argc,char **argv) {
+//int main(int argc,char **argv) {
+int main(void) {
   int err;
   signal(SIGINT,rcvsig);
 
   /* Read command line.
    */
   g.exename="ray";
-  if ((argc>=1)&&argv&&argv[0]&&argv[0][0]) g.exename=argv[0];
+  //if ((argc>=1)&&argv&&argv[0]&&argv[0][0]) g.exename=argv[0];
+  #if 0 /* Normal native, read from command line... */
   int argi=1;
   while (argi<argc) {
     const char *arg=argv[argi++];
@@ -301,6 +315,14 @@ int main(int argc,char **argv) {
     }
     close(g.srcfd);
   }
+  #else /* For web, let's bake a song into the app. */
+    g.srcpath="embedded_song";
+    g.rate=48000;
+    g.chanc=2;
+    g.srcfd=-1;
+    g.src=(void*)_embedded_song;
+    g.srcc=_embedded_song_size;
+  #endif
   
   /* Prepare driver.
    */
@@ -333,6 +355,11 @@ int main(int argc,char **argv) {
     fprintf(stderr,"%s: Streaming events from '%s' into Raylib at %d hz and %d channels.\n",g.exename,g.srcpath,g.rate,g.chanc);
   }
   PlayAudioStream(g.stream);
+  #if defined(PLATFORM_WEB)
+        SetTargetFPS(60);
+        emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
+    #else
+  fprintf(stderr,"...PlayAudioStream ok...\n");
   for (;;) {
     if (g.sigc) {
       fprintf(stderr,"%s: Stopping due to signal.\n",g.exename);
@@ -368,6 +395,7 @@ int main(int argc,char **argv) {
   CloseAudioDevice();
   fprintf(stderr,"%s: Normal exit.\n",g.exename);
   //TODO Report CPU consumption.
+  #endif
 
   return 0;
 }
