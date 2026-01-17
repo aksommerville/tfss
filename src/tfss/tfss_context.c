@@ -128,8 +128,8 @@ void tfss_event_note_on(uint8_t chid,uint8_t noteid,uint8_t velocity) {
       }
     }
   }
-  voice->triml=0.200f;
-  voice->trimr=0.200f;
+  voice->triml=0.100f;
+  voice->trimr=0.100f;
   voice->framec=0;
   voice->chid=chid;
   voice->noteid=noteid;

@@ -8,11 +8,13 @@ PRECMD=echo "  $@" ; mkdir -p $(@D) ;
 
 ifeq ($(USER),andy)
 
-WRAPPERS:=pulse
-CC:=gcc -c -MMD -O3 -Isrc -Werror -Wimplicit
+WRAPPERS:=pulse ray
+RAYLIB_SDK:=../thirdparty/raylib-5.5_linux_amd64
+CC:=gcc -c -MMD -O3 -Isrc -Werror -Wimplicit -I$(RAYLIB_SDK)/include
 LD:=gcc
 LDPOST:=
 LDPOST_pulse:=-lpulse-simple
+LDPOST_ray:=$(RAYLIB_SDK)/lib/libraylib.a -lm
 AR:=ar
 LIBSTATIC:=out/libtfss.a
 
