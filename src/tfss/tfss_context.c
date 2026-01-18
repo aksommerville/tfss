@@ -42,6 +42,20 @@ static void tfss_calculate_rate_table() {
   }
 }
 
+/* Initialize channels.
+ */
+ 
+static void tfss_init_channels() {
+  struct tfss_channel *channel=tfss.channelv;
+  int chid=0;
+  for (;chid<TFSS_CHANNEL_LIMIT;chid++,channel++) {
+    channel->chid=chid;
+    channel->trim=0.5f*TFSS_TRIM_MAX;
+    channel->pan=0.0f;
+    channel->note_on=0;
+  }
+}
+
 /* Init.
  */
 
@@ -55,6 +69,7 @@ int tfss_init(int rate,int chanc) {
   
   tfss_calculate_rate_table();
   //TODO sine table
+  tfss_init_channels();
   
   return 0;
 }
@@ -86,7 +101,6 @@ void tfss_play_pcm(const float *v,int c,float trim,float pan) {
  */
 
 void tfss_play_song(const void *v,int c,int repeat) {
-  fprintf(stderr,"%s c=%d repeat=%d\n",__func__,c,repeat);
   tfss_event_realtime(0xff);
   tfss.repeat=repeat;
   if (v&&(c>0)) {
@@ -98,104 +112,50 @@ void tfss_play_song(const void *v,int c,int repeat) {
   }
 }
 
-/* Deliver raw events.
+/* Find voice.
  */
  
-static void XXXupd(float *v,int c,struct tfss_voice *voice) {
-  for (;c-->0;v++) {
-    voice->p+=voice->dp;
-    (*v)=(voice->p&0x80000000)?-1.0f:1.0f;
-  }
-}
-
-void tfss_event_note_on(uint8_t chid,uint8_t noteid,uint8_t velocity) {
-  fprintf(stderr,"%s chid=%d note=0x%02x vel=0x%02x\n",__func__,chid,noteid,velocity);
-  //XXX Doing this as quick-n-dirty as possible, just to get some output.
-  struct tfss_voice *voice=0;
-  if (tfss.voicec<TFSS_VOICE_LIMIT) {
-    voice=tfss.voicev+tfss.voicec++;
-  } else {
-    struct tfss_voice *q=tfss.voicev;
-    int i=TFSS_VOICE_LIMIT;
-    voice=q;
-    for (;i-->0;q++) {
-      if (!q->update) {
-        voice=q;
-        break;
-      }
-      if (q->framec>voice->framec) { // Prefer to evict the oldest.
-        voice=q;
-      }
-    }
-  }
-  voice->triml=0.100f;
-  voice->trimr=0.100f;
-  voice->framec=0;
-  voice->chid=chid;
-  voice->noteid=noteid;
-  voice->update=XXXupd;
-  voice->p=0;
-  voice->dp=tfss.dp_by_noteid[noteid&0x7f];
-}
-
-void tfss_event_note_off(uint8_t chid,uint8_t noteid,uint8_t velocity) {
-  fprintf(stderr,"%s chid=%d note=0x%02x vel=0x%02x\n",__func__,chid,noteid,velocity);
+struct tfss_voice *tfss_addressable_voice(uint8_t chid,uint8_t noteid) {
+  if (chid>=TFSS_CHANNEL_LIMIT) return 0;
   struct tfss_voice *voice=tfss.voicev;
   int i=tfss.voicec;
   for (;i-->0;voice++) {
     if (!voice->update) continue;
     if (voice->chid!=chid) continue;
     if (voice->noteid!=noteid) continue;
-    voice->update=0; // stop cold
+    return voice;
   }
+  return 0;
 }
 
-void tfss_event_note_adjust(uint8_t chid,uint8_t noteid,uint8_t velocity) {
-  fprintf(stderr,"%s chid=%d note=0x%02x vel=0x%02x\n",__func__,chid,noteid,velocity);
-  //TODO
+struct tfss_voice *tfss_get_unused_voice() {
+  if (tfss.voicec<TFSS_VOICE_LIMIT) {
+    struct tfss_voice *voice=tfss.voicev+tfss.voicec++;
+    voice->update=0;
+    return voice;
+  }
+  struct tfss_voice *voice=tfss.voicev;
+  struct tfss_voice *q=voice;
+  int i=tfss.voicec;
+  for (;i-->0;q++) {
+    if (!q->update) return q;
+    if (q->framec>voice->framec) { // Prefer to evict the older.
+      voice=q;
+    }
+  }
+  return voice;
 }
 
-void tfss_event_control(uint8_t chid,uint8_t k,uint8_t v) {
-  fprintf(stderr,"%s chid=%d k=0x%02x v=0x%02x\n",__func__,chid,k,v);
-  //TODO
-}
-
-void tfss_event_program(uint8_t chid,uint8_t pid) {
-  fprintf(stderr,"%s chid=%d pid=0x%02x\n",__func__,chid,pid);
-  //TODO
-}
-
-void tfss_event_pressure(uint8_t chid,uint8_t pressure) {
-  fprintf(stderr,"%s chid=%d pressure=0x%02x\n",__func__,chid,pressure);
-  //TODO
-}
-
-void tfss_event_wheel(uint8_t chid,uint8_t lo,uint8_t hi) {
-  fprintf(stderr,"%s chid=%d lo=0x%02x hi=0x%02x\n",__func__,chid,lo,hi);
-  //TODO
-}
-
-void tfss_event_meta(uint8_t chid,uint8_t type,const void *v,int c) {
-  fprintf(stderr,"%s chid=%d type=0x%02x c=%d\n",__func__,chid,type,c);
-  //TODO
-}
-
-void tfss_event_sysex(uint8_t chid,const void *v,int c) {
-  fprintf(stderr,"%s chid=%d c=%d\n",__func__,chid,c);
-  //TODO
-}
-
-void tfss_event_song_position(uint8_t lo,uint8_t hi) {
-  fprintf(stderr,"%s lo=0x%02x hi=0x%02x\n",__func__,lo,hi);
-  //TODO
-}
-
-void tfss_event_song_select(uint8_t v) {
-  fprintf(stderr,"%s 0x%02x\n",__func__,v);
-  //TODO
-}
-
-void tfss_event_realtime(uint8_t cmd) {
-  fprintf(stderr,"%s 0x%02x\n",__func__,cmd);
-  //TODO
+/* Reset channels.
+ */
+ 
+void tfss_reset_all_channels() {
+  struct tfss_channel *channel=tfss.channelv;
+  int i=TFSS_CHANNEL_LIMIT;
+  for (;i-->0;channel++) {
+    channel->pid=0;
+    channel->trim=0.5f*TFSS_TRIM_MAX;
+    channel->pan=0.0f;
+    channel->note_on=0;
+  }
 }

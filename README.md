@@ -19,3 +19,11 @@ So, a pure C synthesizer with no dependencies, not even stdlib.
 - Do include raw PCM channels since it's so easy to.
 - - Caller owns the buffer, and caller is responsible for matching our sample rate.
 - No post-processing. Voices can be written directly onto the main output. At signal cadence, there's no channel, just a list of voices.
+
+2026-01-17: It works, at least I can build it with Raylib for web and the sound seems ok, and performance is not as bad as I expected.
+Two unresolved questions:
+ - Is it possible to ask Raylib for the driver's main rate? I hate forcing it to resample but that's what we're doing now.
+ - Is there a way to lock the driver, and do we need to? This won't be a problem in web, since it's strictly single-threaded, but I expect native is using an I/O thread behind the scenes.
+ 
+tfss itself is not even close to finished. Just got it playing songs with a trivial square wave.
+I'm waiting to see whether Alex has any appetite for using this, before proceeding.
